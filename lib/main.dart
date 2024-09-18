@@ -4,20 +4,6 @@ import 'package:flutter_clicker_sdk/flutter_clicker_sdk.dart';
 import 'package:flutter_clicker_sdk/src/clicker_data.dart';
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-
-  FlutterClickerSdk.setClickerScanMode(mode: ClickerScanMode.bluetooth);
-
-  if (await FlutterClickerSdk.isClickerScanningAvailable()) {
-    FlutterClickerSdk.startClickerScanning();
-
-    var currentRegistrationKey = 1;
-    FlutterClickerSdk.startClickerRegistration(
-        registrationKey: currentRegistrationKey);
-
-    // Press 1 on clicker to register
-  }
-
   runApp(const MyApp());
 }
 
@@ -49,11 +35,12 @@ class App extends StatefulWidget {
 class _AppState extends State<App> {
   String _deviceId = '';
   String _button = '';
+  bool _isClickerInit = false;
 
   @override
   void initState() {
     super.initState();
-    _listenToClickerScan();
+    // _listenToClickerScan();
   }
 
   void _listenToClickerScan() {
@@ -82,6 +69,39 @@ class _AppState extends State<App> {
     Clipboard.setData(ClipboardData(text: value));
   }
 
+  void initClickerSdk() async {
+    if (_isClickerInit) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Already started, start scanning')),
+      );
+      return;
+    }
+    WidgetsFlutterBinding.ensureInitialized();
+    print("Widget flutter binding init");
+
+    FlutterClickerSdk.setClickerScanMode(mode: ClickerScanMode.bluetooth);
+    var isScannerAvailable =
+        await FlutterClickerSdk.isClickerScanningAvailable();
+    print("Scanner available $isScannerAvailable");
+    if (isScannerAvailable) {
+      FlutterClickerSdk.startClickerScanning();
+
+      var currentRegistrationKey = 1;
+      FlutterClickerSdk.startClickerRegistration(
+          registrationKey: currentRegistrationKey);
+
+      // Press 1 on clicker to register
+    }
+    print("Widget flutter binding init");
+    _listenToClickerScan();
+    setState(() {
+      _isClickerInit = true;
+    });
+    print("Started listning");
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Scanner Started now you can scan')),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -94,9 +114,13 @@ class _AppState extends State<App> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
+            ElevatedButton(
+              onPressed: initClickerSdk,
+              child: Text(_isClickerInit ? 'Started' : 'Start'),
+            ),
             const SizedBox(height: 20),
             const Text(
-              'Device ID:',
+              'Scanned Device:',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             GestureDetector(
