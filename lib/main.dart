@@ -123,6 +123,7 @@ class _AppState extends State<App> {
               'Scanned Device:',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
+            const SizedBox(height: 5),
             GestureDetector(
               onTap: _copyToClipboard,
               child: Text(
@@ -136,9 +137,10 @@ class _AppState extends State<App> {
                 ),
               ),
             ),
+            const SizedBox(height: 5),
             ElevatedButton(
               onPressed: _copyToClipboard,
-              child: const Text('Copy Device ID'),
+              child: const Text('Copy Mac'),
             ),
           ],
         ),
