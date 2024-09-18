@@ -1,0 +1,45 @@
+FROM ubuntu:20.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install necessary dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    git \
+    unzip \
+    xz-utils \
+    zip \
+    libglu1-mesa \
+    openjdk-8-jdk \
+    wget \
+    clang \
+    cmake \
+    ninja-build \
+    pkg-config \
+    libgtk-3-dev \
+    liblzma-dev \
+    mingw-w64 \
+    software-properties-common \
+    gpg-agent
+
+# Install Flutter
+RUN git clone https://github.com/flutter/flutter.git /flutter
+ENV PATH="/flutter/bin:${PATH}"
+RUN flutter channel stable
+RUN flutter upgrade
+RUN flutter config --enable-windows-desktop
+
+# Set up Wine
+RUN wget -nc https://dl.winehq.org/wine-builds/winehq.key
+RUN apt-key add winehq.key
+RUN add-apt-repository 'deb https://dl.winehq.org/wine-builds/ubuntu/ focal main'
+RUN apt-get update
+RUN apt-get install -y --install-recommends winehq-stable
+
+# Set up Windows 10 SDK
+RUN wget https://go.microsoft.com/fwlink/p/?LinkID=2033908 -O SDK.exe && \
+    wine SDK.exe /q
+
+WORKDIR /app
+
+CMD ["flutter", "build", "windows"]
