@@ -36,14 +36,15 @@ class _AppState extends State<App> {
   String _deviceId = '';
   String _button = '';
   bool _isClickerInit = false;
+  ClickerScanMode _scanMode = ClickerScanMode.bluetooth;
+  String _dongleStatusMessage = '';
 
   @override
   void initState() {
     super.initState();
-    // _listenToClickerScan();
   }
 
-  void _listenToClickerScan() {
+  void _listenToClickerScan() async {
     FlutterClickerSdk.clickerScanStream.listen((event) {
       var clickerData = event;
       _copyStringToClipboard(clickerData.deviceId);
@@ -79,28 +80,32 @@ class _AppState extends State<App> {
     WidgetsFlutterBinding.ensureInitialized();
     print("Widget flutter binding init");
 
-    FlutterClickerSdk.setClickerScanMode(mode: ClickerScanMode.bluetooth);
+    FlutterClickerSdk.setClickerScanMode(mode: _scanMode);
     var isScannerAvailable =
         await FlutterClickerSdk.isClickerScanningAvailable();
     print("Scanner available $isScannerAvailable");
     if (isScannerAvailable) {
+      _dongleStatusMessage = '';
       FlutterClickerSdk.startClickerScanning();
-
       var currentRegistrationKey = 1;
       FlutterClickerSdk.startClickerRegistration(
           registrationKey: currentRegistrationKey);
 
-      // Press 1 on clicker to register
+      print("Widget flutter binding init");
+      setState(() {
+        _isClickerInit = true;
+      });
+      _listenToClickerScan();
+      print("Started listening");
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Scanner Started now you can scan')),
+      );
+
+    } else {
+      _dongleStatusMessage = _scanMode == ClickerScanMode.bluetooth
+          ? 'Bluetooth is not on or not available'
+          : 'Dongle is not connected';
     }
-    print("Widget flutter binding init");
-    _listenToClickerScan();
-    setState(() {
-      _isClickerInit = true;
-    });
-    print("Started listning");
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Scanner Started now you can scan')),
-    );
   }
 
   @override
@@ -114,14 +119,53 @@ class _AppState extends State<App> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
+            const Text(
+              'Select Scan Mode:',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Radio<ClickerScanMode>(
+                  value: ClickerScanMode.bluetooth,
+                  groupValue: _scanMode,
+                  onChanged: _isClickerInit
+                      ? null
+                      : (ClickerScanMode? value) {
+                          setState(() {
+                            _scanMode = value!;
+                          });
+                        },
+                ),
+                const Text('Bluetooth'),
+                Radio<ClickerScanMode>(
+                  value: ClickerScanMode.dongle,
+                  groupValue: _scanMode,
+                  onChanged: _isClickerInit
+                      ? null
+                      : (ClickerScanMode? value) {
+                          setState(() {
+                            _scanMode = value!;
+                          });
+                        },
+                ),
+                const Text('Dongle'),
+              ],
+            ),
+            const SizedBox(height: 20),
             ElevatedButton(
-              onPressed: initClickerSdk,
+              onPressed: _isClickerInit ? null : initClickerSdk,
               child: Text(_isClickerInit ? 'Started' : 'Start'),
             ),
+            Text(_dongleStatusMessage,
+                style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Color.fromRGBO(255, 0, 0, 100))),
             const SizedBox(height: 20),
             const Text(
               'Scanned Device:',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.normal),
             ),
             const SizedBox(height: 5),
             GestureDetector(
