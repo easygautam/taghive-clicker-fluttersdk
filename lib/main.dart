@@ -52,7 +52,7 @@ class _AppState extends State<App> {
   }
 
   void initiateRegistration() {
-    var random = _random.nextInt(5) + 1;
+    var random = 1;// _random.nextInt(5) + 1;
     FlutterClickerSdk.startClickerRegistration(registrationKey: random);
     print("Started registration with key $random");
     setState(() {
