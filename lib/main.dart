@@ -4,6 +4,7 @@ import 'package:flutter_clicker_sdk/flutter_clicker_sdk.dart';
 import 'package:flutter_clicker_sdk/src/clicker_data.dart';
 import 'dart:math';
 import 'dart:async';
+import 'package:rxdart/rxdart.dart';
 
 void main() async {
   runApp(const MyApp());
@@ -59,22 +60,15 @@ class _AppState extends State<App> {
     });
   }
 
-  void updateDebounceValue(void Function() action) {
-    if (_debounce?.isActive ?? false) _debounce!.cancel();
-    _debounce = Timer(const Duration(milliseconds: 300), () {
-      action();
-    });
-  }
-
   void _listenToClickerScan() async {
-    FlutterClickerSdk.clickerScanStream.listen((event) {
+    FlutterClickerSdk.clickerScanStream
+        .debounceTime(const Duration(milliseconds: 100))
+        .listen((event) {
       var clickerData = event;
-      updateDebounceValue(() {
-        setState(() {
-          _copyStringToClipboard(clickerData.deviceId);
-          _deviceId = clickerData.deviceId;
-          _button = clickerData.clickerButtonValue.name;
-        });
+      _copyStringToClipboard(clickerData.deviceId);
+      setState(() {
+        _deviceId = clickerData.deviceId;
+        _button = clickerData.clickerButtonValue.name;
       });
 
       // if (_deviceId != '') {
@@ -98,7 +92,7 @@ class _AppState extends State<App> {
           _registrationKey = 0;
         });
       }
-    });
+    }) as Stream<ClickerData>;
   }
 
   void _copyToClipboard() {
@@ -168,6 +162,11 @@ class _AppState extends State<App> {
             : 'Dongle is not connected';
       });
     }
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
   }
 
   @override
