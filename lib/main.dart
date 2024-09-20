@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_clicker_sdk/flutter_clicker_sdk.dart';
 import 'package:flutter_clicker_sdk/src/clicker_data.dart';
+import 'dart:math';
 
 void main() async {
   runApp(const MyApp());
@@ -36,12 +37,24 @@ class _AppState extends State<App> {
   String _deviceId = '';
   String _button = '';
   bool _isClickerInit = false;
+  bool _isRegisterMode = false;
   ClickerScanMode _scanMode = ClickerScanMode.bluetooth;
   String _dongleStatusMessage = '';
+  var _registrationKey = 0;
+  final Random _random = Random();
 
   @override
   void initState() {
     super.initState();
+  }
+
+  void initiateRegistration() {
+    var random = _random.nextInt(5) + 1;
+    FlutterClickerSdk.startClickerRegistration(registrationKey: random);
+    print("Started registration with key $random");
+    setState(() {
+      _registrationKey = random;
+    });
   }
 
   void _listenToClickerScan() async {
@@ -55,7 +68,15 @@ class _AppState extends State<App> {
       print(
           "DeviceID - $_deviceId, clickerButtonValue - ${clickerData.clickerButtonValue.name}");
 
-      FlutterClickerSdk.stopClickerRegistration();
+      if (_isRegisterMode) {
+        initiateRegistration();
+      } else {
+        FlutterClickerSdk.stopClickerRegistration();
+        setState(() {
+          // stop printing the key value, registration stopped
+          _registrationKey = 0;
+        });
+      }
     });
   }
 
@@ -71,13 +92,26 @@ class _AppState extends State<App> {
   }
 
   void initClickerSdk() async {
+    WidgetsFlutterBinding.ensureInitialized();
     if (_isClickerInit) {
+      // Stop scanning
+      FlutterClickerSdk.stopClickerScanning();
+      // Stop registration if it is in registration mode
+      if (_isRegisterMode) {
+        FlutterClickerSdk.stopClickerRegistration();
+      }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Already started, start scanning')),
+        const SnackBar(content: Text('Stopped')),
       );
+      setState(() {
+        _isClickerInit = false;
+        _isRegisterMode = false;
+        _deviceId = '';
+      });
+      print("Stopped");
       return;
     }
-    WidgetsFlutterBinding.ensureInitialized();
+
     print("Widget flutter binding init");
 
     FlutterClickerSdk.setClickerScanMode(mode: _scanMode);
@@ -87,24 +121,32 @@ class _AppState extends State<App> {
     if (isScannerAvailable) {
       _dongleStatusMessage = '';
       FlutterClickerSdk.startClickerScanning();
-      var currentRegistrationKey = 1;
-      FlutterClickerSdk.startClickerRegistration(
-          registrationKey: currentRegistrationKey);
+
+      // if (_isRegisterMode) {
+      initiateRegistration();
+      // }
 
       print("Widget flutter binding init");
       setState(() {
         _isClickerInit = true;
       });
-      _listenToClickerScan();
+      // Start registration
+      if (_isRegisterMode) {
+        _listenToClickerScan();
+      }
       print("Started listening");
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Scanner Started now you can scan')),
+        SnackBar(
+            content: Text(_isRegisterMode
+                ? 'Started for registration'
+                : 'Scanner Started now you can scan')),
       );
-
     } else {
-      _dongleStatusMessage = _scanMode == ClickerScanMode.bluetooth
-          ? 'Bluetooth is not on or not available'
-          : 'Dongle is not connected';
+      setState(() {
+        _dongleStatusMessage = _scanMode == ClickerScanMode.bluetooth
+            ? 'Bluetooth is not on or not available'
+            : 'Dongle is not connected';
+      });
     }
   }
 
@@ -153,39 +195,75 @@ class _AppState extends State<App> {
               ],
             ),
             const SizedBox(height: 20),
+            if (_scanMode == ClickerScanMode.dongle)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Checkbox(
+                    value: _isRegisterMode,
+                    onChanged: _isClickerInit
+                        ? null
+                        : (bool? value) {
+                            print("Register mode changed $value");
+                            setState(() {
+                              _isRegisterMode = value!;
+                              print(
+                                  "Register mode after changed $_isRegisterMode");
+                            });
+                          },
+                  ),
+                  const Text('Register Mode'),
+                ],
+              ),
+            const SizedBox(height: 20),
             ElevatedButton(
-              onPressed: _isClickerInit ? null : initClickerSdk,
-              child: Text(_isClickerInit ? 'Started' : 'Start'),
+              onPressed: initClickerSdk,
+              child: Text(_isClickerInit ? 'Stop' : 'Start'),
             ),
             Text(_dongleStatusMessage,
                 style: const TextStyle(
                     fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.normal,
                     color: Color.fromRGBO(255, 0, 0, 100))),
-            const SizedBox(height: 20),
-            const Text(
-              'Scanned Device:',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.normal),
-            ),
-            const SizedBox(height: 5),
-            GestureDetector(
-              onTap: _copyToClipboard,
-              child: Text(
-                _deviceId.isEmpty
-                    ? 'Waiting for device...'
-                    : ("Mac - $_deviceId, Btn pressed - $_button"),
-                style: const TextStyle(
-                  fontSize: 16,
-                  color: Colors.blue,
-                  decoration: TextDecoration.underline,
-                ),
+            const SizedBox(height: 10),
+            if (_scanMode == ClickerScanMode.dongle &&
+                _registrationKey != 0 &&
+                _isClickerInit)
+              Text(
+                'Press $_registrationKey',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.normal),
               ),
-            ),
-            const SizedBox(height: 5),
-            ElevatedButton(
-              onPressed: _copyToClipboard,
-              child: const Text('Copy Mac'),
-            ),
+            if (_isClickerInit)
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: <Widget>[
+                  const SizedBox(height: 20),
+                  Text(
+                    _isRegisterMode ? 'Registered Device:' : 'Scanned Device:',
+                    style:
+                        TextStyle(fontSize: 18, fontWeight: FontWeight.normal),
+                  ),
+                  const SizedBox(height: 5),
+                  GestureDetector(
+                    onTap: _copyToClipboard,
+                    child: Text(
+                      _deviceId.isEmpty
+                          ? 'Waiting for device...'
+                          : ("Mac - $_deviceId, Btn pressed - $_button"),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        color: Colors.blue,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  ElevatedButton(
+                    onPressed: _copyToClipboard,
+                    child: const Text('Copy Mac'),
+                  ),
+                ],
+              )
           ],
         ),
       ),
