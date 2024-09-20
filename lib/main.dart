@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_clicker_sdk/flutter_clicker_sdk.dart';
 import 'package:flutter_clicker_sdk/src/clicker_data.dart';
 import 'dart:math';
+import 'dart:async';
 
 void main() async {
   runApp(const MyApp());
@@ -42,6 +43,7 @@ class _AppState extends State<App> {
   String _dongleStatusMessage = '';
   var _registrationKey = 0;
   final Random _random = Random();
+  Timer? _debounce;
 
   @override
   void initState() {
@@ -57,14 +59,33 @@ class _AppState extends State<App> {
     });
   }
 
+  void updateDebounceValue(void Function() action) {
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    _debounce = Timer(const Duration(milliseconds: 300), () {
+      action();
+    });
+  }
+
   void _listenToClickerScan() async {
     FlutterClickerSdk.clickerScanStream.listen((event) {
       var clickerData = event;
-      _copyStringToClipboard(clickerData.deviceId);
-      setState(() {
-        _deviceId = clickerData.deviceId;
-        _button = clickerData.clickerButtonValue.name;
+      updateDebounceValue(() {
+        setState(() {
+          _copyStringToClipboard(clickerData.deviceId);
+          _deviceId = clickerData.deviceId;
+          _button = clickerData.clickerButtonValue.name;
+        });
       });
+
+      // if (_deviceId != '') {
+      //
+      // } else {
+      //   setState(() {
+      //     _deviceId = clickerData.deviceId;
+      //     _button = clickerData.clickerButtonValue.name;
+      //   });
+      // }
+
       print(
           "DeviceID - $_deviceId, clickerButtonValue - ${clickerData.clickerButtonValue.name}");
 
@@ -93,6 +114,7 @@ class _AppState extends State<App> {
 
   void initClickerSdk() async {
     WidgetsFlutterBinding.ensureInitialized();
+    // Stop the SDK
     if (_isClickerInit) {
       // Stop scanning
       FlutterClickerSdk.stopClickerScanning();
@@ -122,18 +144,16 @@ class _AppState extends State<App> {
       _dongleStatusMessage = '';
       FlutterClickerSdk.startClickerScanning();
 
-      // if (_isRegisterMode) {
       initiateRegistration();
-      // }
 
       print("Widget flutter binding init");
       setState(() {
         _isClickerInit = true;
       });
-      // Start registration
-      if (_isRegisterMode) {
-        _listenToClickerScan();
-      }
+
+      // Start listen scanning
+      _listenToClickerScan();
+
       print("Started listening");
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -231,7 +251,7 @@ class _AppState extends State<App> {
                 _isClickerInit)
               Text(
                 'Press $_registrationKey',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.normal),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
             if (_isClickerInit)
               Column(
