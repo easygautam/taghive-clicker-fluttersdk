@@ -138,7 +138,9 @@ class _AppState extends State<App> {
       _dongleStatusMessage = '';
       FlutterClickerSdk.startClickerScanning();
 
-      initiateRegistration();
+      if(_isRegisterMode) {
+        initiateRegistration();
+      }
 
       print("Widget flutter binding init");
       setState(() {
